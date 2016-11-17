@@ -206,10 +206,12 @@ void ComputeNewPos()
     sim_t += dt_old;
 
     //sem_post(&cheio);
-    for (int rank = 1; rank < numt; rank++) {
+    for (int rank = 1; rank < numt-1; rank++) {
         MPI_Send(&particles, npart, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
         MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
     }
+    MPI_Send(&particles, npart, MPI_CHAR, numt, MPI_ANY_TAG, MPI_COMM_WORLD);
+    MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, numt, MPI_ANY_TAG, MPI_COMM_WORLD);
   }
 }
 
