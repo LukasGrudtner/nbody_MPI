@@ -144,7 +144,10 @@ void ComputeForces()
     //
     // pthread_mutex_unlock(&barrier);
 
-    MPI_Send(&pv, tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
+    if (rank != numt-1)
+        MPI_Send(&pv, tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
+    else
+        MPI_Send(&pv, tamanho_laco+sobra, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
     MPI_Send(&max_f, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
   }
     //pthread_exit(NULL);
@@ -165,8 +168,8 @@ void ComputeNewPos()
         if (max_f_auxiliar > max_f)
             max_f = max_f_auxiliar;
     }
-    MPI_Recv(&pv[rank*tamanho_laco], tamanho_laco+sobra, MPI_CHAR, numt, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&max_f_auxiliar, 1, MPI_INT, numt, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&pv[rank*tamanho_laco], tamanho_laco+sobra, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&max_f_auxiliar, 1, MPI_INT, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     if (max_f_auxiliar > max_f)
         max_f = max_f_auxiliar;
     //sem_wait(&newPos);
@@ -210,8 +213,8 @@ void ComputeNewPos()
         MPI_Send(&particles, npart, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
         MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
     }
-    MPI_Send(&particles, npart, MPI_CHAR, numt, MPI_ANY_TAG, MPI_COMM_WORLD);
-    MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, numt, MPI_ANY_TAG, MPI_COMM_WORLD);
+    MPI_Send(&particles, npart, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
+    MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
   }
 }
 
@@ -269,8 +272,8 @@ int main(int argc, char **argv)
             MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
             MPI_Send(&particles[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
         }
-        MPI_Send(&pv[rank*tamanho_laco], tamanho_laco+sobra, MPI_CHAR, numt, MPI_ANY_TAG, MPI_COMM_WORLD);
-        MPI_Send(&particles[rank*tamanho_laco], tamanho_laco, MPI_CHAR, numt, MPI_ANY_TAG, MPI_COMM_WORLD);
+        MPI_Send(&pv[rank*tamanho_laco], tamanho_laco+sobra, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
+        MPI_Send(&particles[rank*tamanho_laco], tamanho_laco, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
     }
 
     sim_t = 0.0;
