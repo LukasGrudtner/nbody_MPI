@@ -75,6 +75,7 @@ void ComputeForces()
   int i = rank * tamanho_laco;
   int backup = i;
   int aux = i + tamanho_laco;
+  int sobra = npart%numt;
 
   particles = (Particle *) malloc(sizeof(Particle)*npart);
   if((rank) == numt-1){
