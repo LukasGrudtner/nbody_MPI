@@ -77,13 +77,13 @@ void ComputeForces()
     aux += npart%numt;
     //int tamanho_memoria_ultimo_processo = tamanho_laco + (npart%numt);
     pv = (ParticleV *) malloc(sizeof(ParticleV)*(tamanho_laco+sobra));
-    MPI_Recv(&pv, sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&pv, sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   } else {
     pv = (ParticleV *) malloc(sizeof(ParticleV)*tamanho_laco);
-    MPI_Recv(&pv, sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&pv, sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 
-  MPI_Recv(&particles, sizeof(Particle)*tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  MPI_Recv(&particles, sizeof(Particle)*tamanho_laco, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
   Particle * others = particles;
   Particle * myparticles = particles;
@@ -121,18 +121,18 @@ void ComputeForces()
         max_f = fx;
     }
 
-    MPI_Send(&max_f, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
+    MPI_Send(&max_f, 1, MPI_DOUBLE, 0, 2, MPI_COMM_WORLD);
     if (rank == numt-1) {
-        MPI_Send(&pv, sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
-        MPI_Recv(&pv, sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Send(&pv, sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, 1, MPI_COMM_WORLD);
+        MPI_Recv(&pv, sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     } else {
-        MPI_Send(&pv, sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
-        MPI_Recv(&pv, sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Send(&pv, sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, 1, MPI_COMM_WORLD);
+        MPI_Recv(&pv, sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     }
-    MPI_Recv(&particles, sizeof(Particle)*tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&particles, sizeof(Particle)*tamanho_laco, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     // Aguarda confirmação do mestre para reexecutar
-    MPI_Recv(&reexecutar_loop, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&reexecutar_loop, 1, MPI_INT, 0, 3, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
 }
 
@@ -147,13 +147,13 @@ void ComputeNewPos()
 
     // Recebe o pv calculado de todos os processos
     for (int rank = 1; rank < npart-1; rank++) {
-        MPI_Recv(&pv[rank*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, rank, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&pv[rank*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, rank, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         if (max_f_auxiliar > max_f)
             max_f = max_f_auxiliar;
     }
-    MPI_Recv(&pv[rank*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&pv[rank*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, numt-1, 2, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     if (max_f_auxiliar > max_f)
         max_f = max_f_auxiliar;
@@ -193,11 +193,11 @@ void ComputeNewPos()
     sim_t += dt_old;
 
     for (int rank = 1; rank < numt-1; rank++) {
-        MPI_Send(&particles, sizeof(Particle)*npart, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
-        MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
+        MPI_Send(&particles, sizeof(Particle)*npart, MPI_CHAR, rank, 0, MPI_COMM_WORLD);
+        MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, 1, MPI_COMM_WORLD);
     }
-    MPI_Send(&particles, sizeof(Particle)*npart, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
-    MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
+    MPI_Send(&particles, sizeof(Particle)*npart, MPI_CHAR, numt-1, 0, MPI_COMM_WORLD);
+    MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, 1, MPI_COMM_WORLD);
   }
 }
 
@@ -243,13 +243,13 @@ int main(int argc, char **argv)
     	InitParticles(particles, pv, npart);
         for(int rank = 1; rank < numt-1; rank++) {
           printf("1");
-            MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
+            MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, 1, MPI_COMM_WORLD);
             printf("2");
-            MPI_Send(&particles[rank*tamanho_laco], sizeof(Particle)*tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
+            MPI_Send(&particles[rank*tamanho_laco], sizeof(Particle)*tamanho_laco, MPI_CHAR, rank, 0, MPI_COMM_WORLD);
             printf("3");
         }
-        MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
-        MPI_Send(&particles[rank*tamanho_laco], sizeof(Particle)*tamanho_laco, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
+        MPI_Send(&pv[rank*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, 1, MPI_COMM_WORLD);
+        MPI_Send(&particles[rank*tamanho_laco], sizeof(Particle)*tamanho_laco, MPI_CHAR, numt-1, 0, MPI_COMM_WORLD);
     }
 
     sim_t = 0.0;
