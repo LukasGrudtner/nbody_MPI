@@ -66,9 +66,7 @@ void ComputeForces()
 {
   int loop = cnt;
 
-  int i = rank * tamanho_laco;
-  int backup = i;
-  int aux = i + tamanho_laco;
+  int aux = tamanho_laco;
   int sobra = npart%numt;
   int reexecutar_loop = 0;
 
@@ -89,14 +87,13 @@ void ComputeForces()
   Particle * myparticles = particles;
 
   while(loop--){
-    i = backup;
 
-    for(i; i < aux; i++){
+    for(int i = 0; i < aux; i++){
       int j;
       double xi, yi, mi, rx, ry, mj, r, fx, fy, rmin;
       rmin = 100.0;
-      xi   = myparticles[i].x;
-      yi   = myparticles[i].y;
+      xi   = myparticles[i + (rank*tamanho_laco)].x;
+      yi   = myparticles[i + (rank*tamanho_laco)].y;
       fx   = 0.0;
       fy   = 0.0;
 
@@ -221,6 +218,7 @@ int main(int argc, char **argv)
   	dt = 0.001;
   	dt_old = 0.001;
 
+    printf("1");
   	if (rank == 0) {
     	/* Allocate memory for particles */
     	particles = (Particle *) malloc(sizeof(Particle)*npart);
@@ -255,10 +253,10 @@ int main(int argc, char **argv)
     sim_t = 0.0;
 
     if (rank != 0) {
-    	ComputeForces();
-    } else {
-    	ComputeNewPos();
-    }
+     	ComputeForces();
+     } else {
+     	ComputeNewPos();
+     }
 
     MPI_Finalize();
 
