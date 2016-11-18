@@ -145,11 +145,11 @@ void ComputeForces()
     //
     // pthread_mutex_unlock(&barrier);
 
-    if (rank != numt-1)
-        MPI_Send(&pv, tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
-    else
+    if (rank == numt-1)
         MPI_Send(&pv, tamanho_laco+sobra, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
-    MPI_Send(&max_f, 1, MPI_INT, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
+    else
+        MPI_Send(&pv, tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
+    MPI_Send(&max_f, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
   }
     //pthread_exit(NULL);
 }
@@ -158,19 +158,19 @@ void ComputeNewPos()
 {
   int loop = cnt;
   int sobra = npart%numt;
-  int max_f = 0, max_f_auxiliar = 0;
+  double max_f = 0, max_f_auxiliar = 0;
 
   while(loop--){
 
     // Recebe o pv calculado de todos os processos
     for (int rank = 1; rank < npart-1; rank++) {
         MPI_Recv(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv(&max_f_auxiliar, 1, MPI_INT, rank, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, rank, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         if (max_f_auxiliar > max_f)
             max_f = max_f_auxiliar;
     }
     MPI_Recv(&pv[rank*tamanho_laco], tamanho_laco+sobra, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&max_f_auxiliar, 1, MPI_INT, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     if (max_f_auxiliar > max_f)
         max_f = max_f_auxiliar;
     //sem_wait(&newPos);
