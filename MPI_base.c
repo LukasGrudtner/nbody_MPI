@@ -150,7 +150,10 @@ void ComputeForces()
     else
         MPI_Send(&pv, tamanho_laco, MPI_CHAR, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
     MPI_Send(&max_f, 1, MPI_DOUBLE, 0, MPI_ANY_TAG, MPI_COMM_WORLD);
+    // FAZER RECEIVES
   }
+
+
     //pthread_exit(NULL);
 }
 
@@ -171,6 +174,7 @@ void ComputeNewPos()
     }
     MPI_Recv(&pv[rank*tamanho_laco], tamanho_laco+sobra, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
     if (max_f_auxiliar > max_f)
         max_f = max_f_auxiliar;
     //sem_wait(&newPos);
@@ -215,7 +219,7 @@ void ComputeNewPos()
         MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
     }
     MPI_Send(&particles, npart, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
-    MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
+    MPI_Send(&pv[rank*tamanho_laco+sobra], tamanho_laco, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
   }
 }
 
@@ -270,8 +274,11 @@ int main(int argc, char **argv)
 
     	InitParticles(particles, pv, npart);
         for(int rank = 1; rank < numt-1; rank++) {
+          printf("1");
             MPI_Send(&pv[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
+            printf("2");
             MPI_Send(&particles[rank*tamanho_laco], tamanho_laco, MPI_CHAR, rank, MPI_ANY_TAG, MPI_COMM_WORLD);
+            printf("3");
         }
         MPI_Send(&pv[rank*tamanho_laco], tamanho_laco+sobra, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
         MPI_Send(&particles[rank*tamanho_laco], tamanho_laco, MPI_CHAR, numt-1, MPI_ANY_TAG, MPI_COMM_WORLD);
