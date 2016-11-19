@@ -11,7 +11,6 @@
 #define MULTIPLIER 48271
 #define DEFAULT    123456789
 
-// sem_t maxF, cheio, newPos;
 static long seed = DEFAULT;
 double dt, dt_old;        /* Alterado de static para global */
 double max_f;
@@ -19,8 +18,8 @@ double sim_t;             /* Simulation time */
 int npart, contador;
 int cnt;                  /* number of times in loop */
 int tamanho_laco;         /* tamanho dos blocos de laço dos processos*/
-int numt;                 /* numero de processos */
-int rank;
+int nump;                 /* numero de processos */
+int rank;                 /* rank do processo */
 
 double Random(void)
 /* ----------------------------------------------------------------
@@ -60,38 +59,34 @@ typedef struct {
 */
 Particle  * particles;   /* Particles */
 ParticleV * pv;          /* Particle velocity */
-//***************************************************
 
 void ComputeForces()
 {
   int loop = cnt;
-  int aux = tamanho_laco;
-  int sobra = npart%(numt-1);
+  int bloco = tamanho_laco;
+  int sobra = npart%(nump-1);
 
+  if((rank) == nump-1)
+    bloco += sobra;
+
+  pv = (ParticleV *) malloc(sizeof(ParticleV)*bloco);
   particles = (Particle *) malloc(sizeof(Particle)*npart);
-
-  if((rank) == numt-1){
-    aux += sobra;
-    pv = (ParticleV *) malloc(sizeof(ParticleV)*(tamanho_laco+sobra));
-    MPI_Recv(&pv[0], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  } else {
-    pv = (ParticleV *) malloc(sizeof(ParticleV)*tamanho_laco);
-    MPI_Recv(&pv[0], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-  }
-
-  MPI_Recv(&particles[0], sizeof(Particle)*npart, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
   Particle * others = particles;
   Particle * myparticles = particles;
 
-  while(loop--){
-     // printf("ComputeForces[%d] - Iniciando execução %d\n", rank, loop);
-    for(int i = 0; i < aux; i++){
+  // Aguarda recebimento do primeiro bloco
+  MPI_Recv(&pv[0], sizeof(ParticleV)*bloco, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  MPI_Recv(&particles[0], sizeof(Particle)*npart, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+  while (loop--){
+
+    for (int i = 0; i < bloco; i++){
       int j;
       double xi, yi, mi, rx, ry, mj, r, fx, fy, rmin;
       rmin = 100.0;
-      xi   = myparticles[i + ((rank-1)*tamanho_laco)].x;
-      yi   = myparticles[i + ((rank-1)*tamanho_laco)].y;
+      xi   = myparticles[i + (rank-1)*tamanho_laco].x;
+      yi   = myparticles[i + (rank-1)*tamanho_laco].y;
       fx   = 0.0;
       fy   = 0.0;
 
@@ -116,42 +111,34 @@ void ComputeForces()
         max_f = fx;
     }
 
-    //printf("ComputeForces[%d] - Enviando e aguardando resposta\n\n", rank);
-    if (rank == numt-1) {
-        MPI_Send(&max_f, 1, MPI_DOUBLE, 0, (numt-1)+10, MPI_COMM_WORLD);
-        MPI_Send(&pv[0], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, (numt-1), MPI_COMM_WORLD);
-        MPI_Recv(&pv[0], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    } else {
-        MPI_Send(&max_f, 1, MPI_DOUBLE, 0, rank+10, MPI_COMM_WORLD);
-        MPI_Send(&pv[0], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, rank, MPI_COMM_WORLD);
-        MPI_Recv(&pv[0], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    }
+    // Envia o bloco calculado para o processo mestre
+    MPI_Send(&max_f, 1, MPI_DOUBLE, 0, rank+10, MPI_COMM_WORLD);
+    MPI_Send(&pv[0], sizeof(ParticleV)*bloco, MPI_CHAR, 0, rank, MPI_COMM_WORLD);
+
+    // Aguarda o recebimento do novo bloco
+    MPI_Recv(&pv[0], sizeof(ParticleV)*bloco, MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Recv(&particles[0], sizeof(Particle)*npart, MPI_CHAR, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   }
-  if (rank != numt-1)
-  printf("ComputeForces[%d] - FIM DA EXECUÇÃO. Início: %d, Fim: %d\n\n", rank, (rank-1)*tamanho_laco, (rank-1)*tamanho_laco+tamanho_laco-1);
-  else
-  printf("ComputeForces[%d] - FIM DA EXECUÇÃO. Início: %d, Fim: %d\n\n", rank, (rank-1)*tamanho_laco, (rank-1)*tamanho_laco+tamanho_laco+sobra-1);
+  printf("ComputeForces[%d] - FIM DA EXECUÇÃO. Início: %d, Fim: %d\n", rank, (rank-1)*tamanho_laco, (rank-1)*tamanho_laco+bloco-1);
 }
 
 void ComputeNewPos()
 {
   int loop = cnt;
-  int sobra = npart%(numt-1);
+  int sobra = npart%(nump-1);
   double max_f = 0, max_f_auxiliar = 0;
 
   while(loop--) {
     // Recebe o pv calculado de todos os processos
-    for (int rank = 1; rank < numt-1; rank++) {
+    for (int rank = 1; rank < nump-1; rank++) {
         MPI_Recv(&pv[(rank-1)*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, rank, rank+10, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
         if (max_f_auxiliar > max_f)
             max_f = max_f_auxiliar;
     }
-    //printf("Posição inicial: [(numt-2)*tamanho_laco] = [(%d-2)*%d] = %d\n\n", numt, tamanho_laco, (numt-2)*tamanho_laco);
-    MPI_Recv(&pv[(numt-2)*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, (numt-1), MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, numt-1, (numt-1)+10, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    //printf("ComputeNewPos[%d] - Fechando a execução %d\n", rank, loop);
+    MPI_Recv(&pv[(nump-2)*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, nump-1, nump-1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+    MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, nump-1, (nump-1)+10, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     if (max_f_auxiliar > max_f)
         max_f = max_f_auxiliar;
@@ -190,15 +177,15 @@ void ComputeNewPos()
 
     sim_t += dt_old;
 
-    //printf("ComputeNewPos[%d] - Enviando e aguardando resposta\n\n", rank);
-    for (int rank = 1; rank < numt-1; rank++) {
+    // Envia os novos cálculos para todos os processos servos
+    for (int rank = 1; rank < nump-1; rank++) {
         MPI_Send(&pv[(rank-1)*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, 1, MPI_COMM_WORLD);
         MPI_Send(&particles[0], sizeof(Particle)*npart, MPI_CHAR, rank, 0, MPI_COMM_WORLD);
     }
-    MPI_Send(&pv[(numt-2)*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, 1, MPI_COMM_WORLD);
-    MPI_Send(&particles[0], sizeof(Particle)*npart, MPI_CHAR, numt-1, 0, MPI_COMM_WORLD);
+    MPI_Send(&pv[(nump-2)*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, nump-1, 1, MPI_COMM_WORLD);
+    MPI_Send(&particles[0], sizeof(Particle)*npart, MPI_CHAR, nump-1, 0, MPI_COMM_WORLD);
   }
-  printf("ComputerNewPos[%d] - FIM DA EXECUÇÃO.\n\n", rank);
+  printf("ComputeNewPos[%d] - FIM DA EXECUÇÃO.\n", rank);
 }
 
 void InitParticles( Particle[], ParticleV [], int );
@@ -215,7 +202,7 @@ int main(int argc, char **argv)
   	}
   	npart = atoi(argv[1]);
   	cnt = atoi(argv[2]);
-  	MPI_Comm_size(MPI_COMM_WORLD, &numt);
+  	MPI_Comm_size(MPI_COMM_WORLD, &nump);
 
   	dt = 0.001;
   	dt_old = 0.001;
@@ -226,41 +213,42 @@ int main(int argc, char **argv)
     	pv = (ParticleV *) malloc(sizeof(ParticleV)*npart);
 	}
 
-    int aux;
-    if (npart < numt){
-      aux = npart;
+    int bloco;
+    if (npart < nump){
+      bloco = npart;
       tamanho_laco = 1;
     } else {
-      aux = numt;
-      tamanho_laco = (int)(npart / (numt-1));
+      bloco = nump;
+      tamanho_laco = (int)(npart / (nump-1));
     }
-    int sobra = npart%(numt-1);
+    int sobra = npart%(nump-1);
 
-    /* Generate the initial values */
+    // Inicializa as partículas e envia os primeiros blocos de cálculo para os processos servos
     if (rank == 0) {
-        printf("Init Particles\n\n");
-
     	InitParticles(particles, pv, npart);
 
-        for(int rank = 1; rank < numt-1; rank++) {
+        for(int rank = 1; rank < nump-1; rank++) {
             MPI_Send(&pv[(rank-1)*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, 1, MPI_COMM_WORLD);
             MPI_Send(&particles[0], sizeof(Particle)*npart, MPI_CHAR, rank, 0, MPI_COMM_WORLD);
         }
-        MPI_Send(&pv[(numt-2)*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, 1, MPI_COMM_WORLD);
-        MPI_Send(&particles[0], sizeof(Particle)*npart, MPI_CHAR, numt-1, 0, MPI_COMM_WORLD);
+        MPI_Send(&pv[(nump-2)*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, nump-1, 1, MPI_COMM_WORLD);
+        MPI_Send(&particles[0], sizeof(Particle)*npart, MPI_CHAR, nump-1, 0, MPI_COMM_WORLD);
     }
 
     sim_t = 0.0;
 
      if (rank != 0)  {
-         printf("ComputeForces[%d]\n\n", rank);
       	ComputeForces();
     } else {
-        printf("ComputeNewPos[%d]\n\n", rank);
       	ComputeNewPos();
     }
 
     MPI_Finalize();
+
+    // Impressão dos valores finais das partículas
+    // if (rank == 0)
+    // for (i=0; i<npart; i++)
+    //   fprintf(stdout,"%.5lf %.5lf\n", particles[i].x, particles[i].y);
 
     return 0;
 }
