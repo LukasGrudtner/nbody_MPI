@@ -139,14 +139,13 @@ void ComputeNewPos()
   while(loop--) {
 
     // Recebe o pv calculado de todos os processos
-//---------------------------------------------------------------------------------------------------------------------
-    for (int rank = 1; rank < npart-1; rank++) {
+    for (int rank = 1; rank < numt-1; rank++) {
         MPI_Recv(&pv[(rank-1)*tamanho_laco], sizeof(ParticleV)*tamanho_laco, MPI_CHAR, rank, rank, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, rank, rank+10, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        //---------------------------------------------------------------------------------------------------------------------
         if (max_f_auxiliar > max_f)
             max_f = max_f_auxiliar;
     }
+    //printf("Posição inicial: [(numt-2)*tamanho_laco] = [(%d-2)*%d] = %d\n\n", numt, tamanho_laco, (numt-2)*tamanho_laco);
     MPI_Recv(&pv[(numt-2)*tamanho_laco], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, numt-1, (numt-1), MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     MPI_Recv(&max_f_auxiliar, 1, MPI_DOUBLE, numt-1, (numt-1)+10, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
@@ -202,7 +201,6 @@ int main(int argc, char **argv)
 {
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
     int i, j;
     int tmp;
     if(argc != 3){
