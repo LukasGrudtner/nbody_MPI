@@ -71,7 +71,7 @@ void ComputeForces()
   particles = (Particle *) malloc(sizeof(Particle)*npart);
 
   if((rank) == numt-1){
-    aux += npart%numt;
+    aux += sobra;
     pv = (ParticleV *) malloc(sizeof(ParticleV)*(tamanho_laco+sobra));
     MPI_Recv(&pv[0], sizeof(ParticleV)*(tamanho_laco+sobra), MPI_CHAR, 0, 1, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
   } else {
